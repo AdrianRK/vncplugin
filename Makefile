@@ -1,7 +1,7 @@
 ####################################################################################################
 #                                     Make file VNC plugin 	                                   #
 ####################################################################################################
-INC:= -I../libvncserver/ -I./inc/
+INC:= -I./inc/
 CFLAGS:= -c -Wall $(INC) --std=c++11
 SOURCES:= main.cpp 
 
@@ -9,7 +9,7 @@ OBJDIR:=./obj
 BINDIR:=./bin
 SRCDIR:=./src
 
-LDFLAGS:= -L../libvncserver/build
+LDFLAGS:=
 
 OBJECTS:=$(SOURCES:.cpp=.o)
 
