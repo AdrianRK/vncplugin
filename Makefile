@@ -9,7 +9,7 @@ OBJDIR:=./obj
 BINDIR:=./bin
 SRCDIR:=./src
 
-LDFLAGS:= 
+LDFLAGS:= -L../libvncserver/build
 
 OBJECTS:=$(SOURCES:.cpp=.o)
 
@@ -24,9 +24,7 @@ $(EXECUTABLE): $(OBJECTS)
 #	cp $(BINDIR)/$@ ./vncplugin/
 
 $(OBJECTS): $(SRCDIR)/$(SOURCES)
-	cd $(SRCDIR)
 	$(CC) $(CFLAGS) $^ -o $(OBJDIR)/$@
-	cd ..
 
 cln:
 	rm -rf $(BINDIR)/$(EXECUTABLE)

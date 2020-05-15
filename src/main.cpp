@@ -83,6 +83,10 @@ static void log_info(const char *format, ...)
 
 int main (int argc, char **argv)
 {
+    if (argc < 2)
+    {
+        printError("Plugin requires the address of the vnc server and the screen number (localhost:1)");
+    }
 	printLog("Start application");
 	
 	rfbClientLog=rfbClientErr=log_info;
@@ -106,7 +110,7 @@ int main (int argc, char **argv)
 		rfbClientCleanup(cl);
 		return 1;
 	}
-	int i = 1;
+	//int i = 1;
 	while (1)
 	{
 		
