@@ -18,8 +18,10 @@
 
 #ifndef VNC_CLIENT_LOGGING_HEADER_
 #define VNC_CLIENT_LOGGING_HEADER_
+
 #include <iostream>
 #include <fstream>
+
 template <typename T>
 void log(std::ostream &stream, const T & obj)
 {
