@@ -61,18 +61,19 @@ const boost::filesystem::path InputLocation = "/tmp/TVQtRC/connectivity/";
 const boost::filesystem::path SessionStatusLocation = "/tmp/TVQtRC/connectivity/";
 
 
-//TVRemoteScreenSDKCommunication::ImageService::ColorFormat getSdkCommunicationColorFormat(const ::ColorFormat colorFormat)
-//{
-//	switch (colorFormat)
-//	{
-//	case ::ColorFormat::BGRA32: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::BGRA32;
-//	case ::ColorFormat::R5G6B5: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::R5G6B5;
-//	case ::ColorFormat::RGBA32: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::RGBA32;
-//	case ::ColorFormat::Unsupported: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::Unknown;
-//	}
-//
-//	return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::Unknown;
-//}
+TVRemoteScreenSDKCommunication::ImageService::ColorFormat getSdkCommunicationColorFormat(const ::ColorFormat colorFormat)
+{
+	printLog("Entry");
+	switch (colorFormat)
+	{
+	case ::ColorFormat::BGRA32: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::BGRA32;
+	case ::ColorFormat::R5G6B5: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::R5G6B5;
+	case ::ColorFormat::RGBA32: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::RGBA32;
+	case ::ColorFormat::Unsupported: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::Unknown;
+	}
+
+	return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::Unknown;
+}
 
 /*ScreenGrabStrategy getQtSdkGrabbingStrategy(const TVRemoteScreenSDKCommunication::SessionStatusService::GrabStrategy strategy)
 {
@@ -89,6 +90,7 @@ const boost::filesystem::path SessionStatusLocation = "/tmp/TVQtRC/connectivity/
 
 TVRemoteScreenSDKCommunication::SessionControlService::ControlMode getSdkCommunicationControlMode(ControlMode mode)
 {
+	printLog("Entry");
 	switch (mode)
 	{
 		case ControlMode::Disabled:    return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::Disable;
@@ -125,6 +127,7 @@ TVRemoteScreenSDKCommunication::SessionControlService::ControlMode getSdkCommuni
 template<typename FactoryFuncT, class ClientT>
 bool setupClient(const std::string& serviceLocation, FactoryFuncT factory, typename std::unique_ptr<ClientT>& client, std::mutex& mutex)
 {
+	printLog("Entry");
 	if (serviceLocation.empty())
 	{
 		return false;
@@ -140,6 +143,7 @@ bool setupClient(const std::string& serviceLocation, FactoryFuncT factory, typen
 template<class ClientT>
 void teardownClient(typename std::unique_ptr<ClientT>& client, std::mutex& mutex)
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> clientLock(mutex);
 	if (client)
 	{
@@ -151,6 +155,7 @@ void teardownClient(typename std::unique_ptr<ClientT>& client, std::mutex& mutex
 template<class ServerT>
 void teardownServer(typename std::unique_ptr<ServerT>& client, std::mutex& mutex)
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> clientLock(mutex);
 	if (client)
 	{
@@ -161,6 +166,7 @@ void teardownServer(typename std::unique_ptr<ServerT>& client, std::mutex& mutex
 
 bool setupDir()
 {
+	printLog("Entry");
 	if (!boost::filesystem::exists(ConnectivityLocation))
 	{
 		if (!boost::filesystem::create_directory(ConnectivityLocation))
@@ -193,6 +199,7 @@ bool setupDir()
 std::shared_ptr<CommunicationChannel> CommunicationChannel::Create(
 	const std::string& registrationSocket)
 {
+	printLog("Entry");
 	const std::shared_ptr<CommunicationChannel> communicationChannel (new CommunicationChannel(registrationSocket));
 
 	communicationChannel->m_weakThis = communicationChannel;
@@ -205,15 +212,50 @@ CommunicationChannel::CommunicationChannel(
 	, m_disconnectCondition(std::make_unique<Condition>())
 	, m_shutdownCondition(std::make_unique<Condition>())
 {
+	printLog("Entry");
+}
+
+void CommunicationChannel::setStartServerConnection(const StartServerConnectionCB& cb)
+{
+	m_sessionStarted = cb;
+}
+
+void CommunicationChannel::setMouseMovementConnection(const MouseMovementCB& cb)
+{
+	m_mouseMoved = cb;
 }
 
 CommunicationChannel::~CommunicationChannel()
 {
+	printLog("Entry");
 	shutdownInternal();
+	//if (m_buffer)
+	//{
+	//	delete [] m_buffer;
+	//}
 }
+
+//void CommunicationChannel::setBufferSize(size_t length)
+//{
+//	if (m_buffer)
+//	{
+//		delete [] m_buffer;
+//	}
+//	m_length = length;
+//	m_buffer = new unsigned char [m_length];
+//}
+
+//void CommunicationChannel::updateBufferSize(const unsigned char* source, size_t length, size_t offset)
+//{
+//	if (source && m_buffer && (offset + length <= m_length))
+//	{
+//		memcpy(m_buffer + offset, source, length * sizeof(unsigned char));
+//	}
+//}
 
 void CommunicationChannel::startup()
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> shutdownLock(m_shutdownCondition->mutex);
 	if (m_isRunning)
 	{
@@ -240,6 +282,7 @@ void CommunicationChannel::startup()
 				{
 					printLog("[Communication Channel] Setup successful.");
 					//agentCommunicationEstablished();
+					m_sessionStarted();
 					startPing();
 					//agentCommunicationLost();
 				}
@@ -257,11 +300,13 @@ void CommunicationChannel::startup()
 
 void CommunicationChannel::shutdown()
 {
+	printLog("Entry");
 	shutdownInternal();
 }
 
 void CommunicationChannel::shutdownInternal()
 {
+	printLog("Entry");
 	sendDisconnect();
 
 	m_isRunning = false;
@@ -282,6 +327,7 @@ void CommunicationChannel::shutdownInternal()
 
 void CommunicationChannel::sendStop()
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> lock(m_sessionControlServiceClientMutex);
 	if (m_sessionControlServiceClient)
 	{
@@ -301,6 +347,7 @@ void CommunicationChannel::sendStop()
 
 void CommunicationChannel::sendControlMode(ControlMode mode)
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> lock(m_sessionControlServiceClientMutex);
 	if (m_sessionControlServiceClient)
 	{
@@ -326,6 +373,7 @@ void CommunicationChannel::sendControlMode(ControlMode mode)
 
 void CommunicationChannel::sendScreenGrabResult(int x, int y, int w, int h, const std::string &pictureData) const
 {
+	//printLog("Entry");
 	TVRemoteScreenSDKCommunication::CallStatus callStatus;
 
 	std::lock_guard<std::mutex> lock(m_imageServiceClientMutex);
@@ -350,39 +398,49 @@ void CommunicationChannel::sendScreenGrabResult(int x, int y, int w, int h, cons
 	}
 }
 
-/*void CommunicationChannel::sendImageDefinitionForGrabResult(
-	const QString& title,
-	QSize size,
-	double dpi,
-	ColorFormat colorFormat) const
+
+void CommunicationChannel::setImageDefinition(const std::string& title,
+		size_t width,
+		size_t height,
+		double dpi,
+		ColorFormat colorFormat)
 {
+	m_title 	= title;
+	m_width 	= width;
+	m_height 	= height;
+	m_dpi 		= dpi;
+	m_color 	= colorFormat;
+}
+
+void CommunicationChannel::sendImageDefinitionForGrabResult() const
+{
+	printLog("Entry");
 	std::lock_guard<std::mutex> lock(m_imageServiceClientMutex);
 	if (m_imageServiceClient)
 	{
 		const TVRemoteScreenSDKCommunication::CallStatus response =
 			m_imageServiceClient->UpdateImageDefinition(
 				m_communicationId,
-				title.toStdString(),
-				size.width(),
-				size.height(),
-				getSdkCommunicationColorFormat(colorFormat),
-				dpi);
+				m_title,
+				m_width,
+				m_height,
+				getSdkCommunicationColorFormat(m_color),
+				m_dpi);
 
 		if (response.IsOk() == false)
 		{
-			const std::string errorMsg =
-				"[CommunicationChannel] Sending image definition failed. Reason: " + response.errorMessage;
-			printError(errorMsg.c_str());
+			printError("[CommunicationChannel] Sending image definition failed. Reason: ", response.errorMessage);
 		}
 	}
 	else
 	{
 		printError("[CommunicationChannel] Image service client not available.");
 	}
-}*/
+}
 
 void CommunicationChannel::sendGrabRequest(int x, int y, int w, int h) const
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> clientLock(m_imageNotificationServiceClientMutex);
 
 	if (m_imageNotificationServiceClient)
@@ -402,11 +460,12 @@ void CommunicationChannel::sendGrabRequest(int x, int y, int w, int h) const
 	}
 }
 
-/*void CommunicationChannel::sendImageDefinitionForGrabRequest(const QString& title, QSize size) const
+void CommunicationChannel::sendImageDefinitionForGrabRequest(const std::string& title, size_t size) const
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> clientLock(m_imageNotificationServiceClientMutex);
 
-	if (m_imageNotificationServiceClient)
+	/*if (m_imageNotificationServiceClient)
 	{
 		TVRemoteScreenSDKCommunication::CallStatus response =
 			m_imageNotificationServiceClient->UpdateImageDefinition(
@@ -421,11 +480,12 @@ void CommunicationChannel::sendGrabRequest(int x, int y, int w, int h) const
 				"[CommunicationChannel] Sending image definition failed. Reason: " + response.errorMessage;
 			printError(errorMsg.c_str());
 		}
-	}
-}*/
+	}*/
+}
 
 std::string CommunicationChannel::getServerLocation(const TVRemoteScreenSDKCommunication::ServiceType serviceType) const
 {
+	printLog("Entry");
 	for (const TVRemoteScreenSDKCommunication::RegistrationService::ServiceInformation& serviceInformation : m_serviceInformations)
 	{
 		if (serviceInformation.type == serviceType)
@@ -439,6 +499,7 @@ std::string CommunicationChannel::getServerLocation(const TVRemoteScreenSDKCommu
 
 bool CommunicationChannel::establishConnection()
 {
+	printLog("Entry");
 	using namespace TVRemoteScreenSDKCommunication::RegistrationService;
 
 	std::lock_guard<std::mutex> lock(m_registrationServiceClientMutex);
@@ -482,6 +543,7 @@ bool CommunicationChannel::establishConnection()
 
 bool CommunicationChannel::setupClientAndServer()
 {
+	printLog("Entry");
 	return setupConnectivityClient() &&
 		setupImageClient() &&
 		setupImageNotificationClient() &&
@@ -494,6 +556,7 @@ bool CommunicationChannel::setupClientAndServer()
 
 bool CommunicationChannel::setupConnectivityService()
 {
+	printLog("Entry");
 	using namespace TVRemoteScreenSDKCommunication::ConnectivityService;
 
 	std::lock_guard<std::mutex> lock(m_connectivityServiceServerMutex);
@@ -507,6 +570,7 @@ bool CommunicationChannel::setupConnectivityService()
 	auto availableCallback = [communicationId{m_communicationId}](
 		const std::string& comId, const IConnectivityServiceServer::IsAvailableResponseCallback& response)
 	{
+		//printLog("Entry");
 		if (comId == communicationId)
 		{
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
@@ -522,6 +586,7 @@ bool CommunicationChannel::setupConnectivityService()
 	auto disconnectCallback = [weakThis](
 		const std::string& comId, const IConnectivityServiceServer::IsAvailableResponseCallback& response)
 	{
+		printLog("Entry");
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
@@ -541,6 +606,7 @@ bool CommunicationChannel::setupConnectivityService()
 
 bool CommunicationChannel::setupInputService()
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> lock(m_inputServiceServerMutex);
 	m_inputServiceServer = TVRemoteScreenSDKCommunication::InputService::ServiceFactory::CreateServer();
 
@@ -559,6 +625,7 @@ bool CommunicationChannel::setupInputService()
 		uint32_t xkbModifiers,
 		const TVRemoteScreenSDKCommunication::InputService::IInputServiceServer::KeyResponseCallback& response)
 	{
+		printLog("Entry");
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
@@ -598,14 +665,12 @@ bool CommunicationChannel::setupInputService()
 		int32_t posY,
 		const TVRemoteScreenSDKCommunication::InputService::IInputServiceServer::MouseMoveResponseCallback& response)
 	{
+		printLog("Entry");
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
-			/*const std::shared_ptr<::SimulateMouseCommand> command =
-				std::make_shared<::SimulateMouseCommand>(MouseButtonState::None, MouseAction::Move, posX, posY, MouseButton::Unknown, 0);*/
-
+			communicationChannel->m_mouseMoved(posX, posY);
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
-			//communicationChannel->simulateMouseInputRequested(command);*/
 		}
 		else
 		{
@@ -622,6 +687,7 @@ bool CommunicationChannel::setupInputService()
 		TVRemoteScreenSDKCommunication::InputService::MouseButton button,
 		const TVRemoteScreenSDKCommunication::InputService::IInputServiceServer::MousePressReleaseResponseCallback& response)
 	{
+		printLog("Entry");
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
@@ -667,6 +733,7 @@ bool CommunicationChannel::setupInputService()
 		int32_t angle,
 		const TVRemoteScreenSDKCommunication::InputService::IInputServiceServer::MouseWheelResponseCallback& response)
 	{
+		printLog("Entry");
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
@@ -688,6 +755,7 @@ bool CommunicationChannel::setupInputService()
 
 bool CommunicationChannel::setupSessionStatusService()
 {
+	printLog("Entry");
 	using namespace TVRemoteScreenSDKCommunication::SessionStatusService;
 
 	std::lock_guard<std::mutex> lock(m_sessionStatusServiceServerMutex);
@@ -704,12 +772,15 @@ bool CommunicationChannel::setupSessionStatusService()
 		const GrabStrategy strategy,
 		const ISessionStatusServiceServer::RemoteControllStartedResponseCallback& response)
 	{
+		printLog("Entry");
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
 
-			//communicationChannel->tvSessionStarted(getQtSdkGrabbingStrategy(strategy));
+			communicationChannel->sendImageDefinitionForGrabResult();
+
+			//communicationChannel->SessionStarted();
 		}
 		else
 		{
@@ -722,6 +793,7 @@ bool CommunicationChannel::setupSessionStatusService()
 		const std::string& comId,
 		const ISessionStatusServiceServer::RemoteControllStartedResponseCallback& response)
 	{
+		printLog("Entry");
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
@@ -740,6 +812,7 @@ bool CommunicationChannel::setupSessionStatusService()
 
 bool CommunicationChannel::setupConnectivityClient()
 {
+	printLog("Entry");
 	const std::string ServiceLocation = getServerLocation(TVRemoteScreenSDKCommunication::ServiceType::Connectivity);
 	return setupClient(
 		ServiceLocation,
@@ -750,6 +823,7 @@ bool CommunicationChannel::setupConnectivityClient()
 
 bool CommunicationChannel::setupImageClient()
 {
+	printLog("Entry");
 	const std::string ServiceLocation = getServerLocation(TVRemoteScreenSDKCommunication::ServiceType::Image);
 	return setupClient(
 		ServiceLocation,
@@ -760,6 +834,7 @@ bool CommunicationChannel::setupImageClient()
 
 bool CommunicationChannel::setupImageNotificationClient()
 {
+	printLog("Entry");
 	const std::string ServiceLocation = getServerLocation(TVRemoteScreenSDKCommunication::ServiceType::ImageNotification);
 	return setupClient(
 		ServiceLocation,
@@ -770,6 +845,7 @@ bool CommunicationChannel::setupImageNotificationClient()
 
 bool CommunicationChannel::setupSessionControlClient()
 {
+	printLog("Entry");
 	const std::string ServiceLocation = getServerLocation(TVRemoteScreenSDKCommunication::ServiceType::SessionControl);
 	return setupClient(
 		ServiceLocation,
@@ -780,6 +856,7 @@ bool CommunicationChannel::setupSessionControlClient()
 
 bool CommunicationChannel::registerServices() const
 {
+	printLog("Entry");
 	TVRemoteScreenSDKCommunication::CallStatus status;
 
 	std::lock_guard<std::mutex> lock(m_registrationServiceClientMutex);
@@ -819,6 +896,7 @@ bool CommunicationChannel::registerServices() const
 
 void CommunicationChannel::sendDisconnect() const
 {
+	printLog("Entry");
 	std::lock_guard<std::mutex> connectivityServiceClientLock(m_connectivityServiceClientMutex);
 	if (m_connectivityServiceClient)
 	{
@@ -831,6 +909,7 @@ void CommunicationChannel::sendDisconnect() const
 
 void CommunicationChannel::startPing()
 {
+	printLog("Entry");
 	constexpr uint8_t PingTimeout = 5; //seconds
 
 	std::unique_lock<std::mutex> lock(m_disconnectCondition->mutex);
@@ -852,6 +931,7 @@ void CommunicationChannel::startPing()
 
 void CommunicationChannel::tearDown()
 {
+	printLog("Entry");
 	teardownServer(m_connectivityServiceServer,  m_connectivityServiceServerMutex);
 	teardownServer(m_inputServiceServer,         m_inputServiceServerMutex);
 	teardownServer(m_sessionStatusServiceServer, m_sessionStatusServiceServerMutex);

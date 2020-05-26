@@ -35,6 +35,7 @@
 #include <atomic>
 #include <vector>
 #include <string>
+#include <functional>
 
 namespace TVRemoteScreenSDKCommunication
 {
@@ -84,6 +85,17 @@ enum class ControlMode
 	FullControl,
 };
 
+enum class ColorFormat
+{
+	Unsupported,
+	BGRA32,
+	RGBA32,
+	R5G6B5,
+};
+
+using StartServerConnectionCB = std::function<void(void)>;
+using MouseMovementCB = std::function<void(int, int)>;
+
 class CommunicationChannel
 {
 public:
@@ -98,17 +110,31 @@ public:
 
 	void sendControlMode(ControlMode mode);
 
-	void sendScreenGrabResult(int x, int y, int w, int h, const std::string &pictureData) const;
-	//void sendImageDefinitionForGrabResult(
-	//	const QString& title,
-	//	QSize size,
-	//	double dpi,
-	//	ColorFormat colorFormat) const;
+	void sendScreenGrabResult(
+			int x,
+			int y,
+			int w,
+			int h,
+			const std::string &pictureData) const;
+
+	void setImageDefinition(const std::string& title,
+			size_t width,
+			size_t height,
+			double dpi,
+			ColorFormat colorFormat);
+
+	void sendImageDefinitionForGrabResult() const;
 
 	void sendGrabRequest(int x, int y, int w, int h) const;
-	//void sendImageDefinitionForGrabRequest(
-		//const QString& title,
-		//QSize size) const;
+	void sendImageDefinitionForGrabRequest(
+		const std::string& title,
+		size_t size) const;
+
+	//void setBufferSize(size_t length);
+	//void updateBufferSize(const unsigned char* source, size_t length, size_t offset);
+
+	void setStartServerConnection(const StartServerConnectionCB& cb);
+	void setMouseMovementConnection(const MouseMovementCB& cb);
 
 private:
 	CommunicationChannel(const std::string& registrationSocket);
@@ -178,5 +204,16 @@ private:
 	std::atomic_bool m_isRunning{false};
 
 	std::weak_ptr<CommunicationChannel> m_weakThis;
+
+	std::string m_title;
+	size_t m_width;
+	size_t m_height;
+	double m_dpi;
+	ColorFormat m_color;
+
+	StartServerConnectionCB m_sessionStarted;
+	MouseMovementCB m_mouseMoved;
+	//unsigned char * m_buffer = nullptr;
+	//size_t m_length = 0;
 };
 
