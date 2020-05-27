@@ -227,7 +227,7 @@ int main (int argc, char **argv)
 
 	comm->startup();
 
-	while(!start);
+	while(!start) sleep(5);
 
 	comm->sendControlMode(ControlMode::FullControl);
 

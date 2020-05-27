@@ -167,30 +167,37 @@ void teardownServer(typename std::unique_ptr<ServerT>& client, std::mutex& mutex
 bool setupDir()
 {
 	printLog("Entry");
-	if (!boost::filesystem::exists(ConnectivityLocation))
+	if (!boost::filesystem::is_directory(ConnectivityLocation))
 	{
-		if (!boost::filesystem::create_directory(ConnectivityLocation))
+		printLog("1");
+		if (!boost::filesystem::create_directories(ConnectivityLocation))
 		{
+			printLog("2");
 			return false;
 		}
 	}
-
-	if (!boost::filesystem::exists(InputLocation))
+	printLog("3");
+	if (!boost::filesystem::is_directory(InputLocation))
 	{
-		if (!boost::filesystem::create_directory(InputLocation))
+		printLog("4");
+		if (!boost::filesystem::create_directories(InputLocation))
 		{
+			printLog("5");
 			return false;
 		}
 	}
+	printLog("6");
 
-	if (!boost::filesystem::exists(SessionStatusLocation))
+	if (!boost::filesystem::is_directory(SessionStatusLocation))
 	{
-		if (!boost::filesystem::create_directory(SessionStatusLocation))
+		printLog("7");
+		if (!boost::filesystem::create_directories(SessionStatusLocation))
 		{
+			printLog("8");
 			return false;
 		}
 	}
-
+	printLog("9");
 	return true;
 }
 
@@ -868,6 +875,7 @@ bool CommunicationChannel::registerServices() const
 
 	if (!status.IsOk())
 	{
+		printLog("Error registering service ", ConnectivityLocation.string());
 		return false;
 	}
 
@@ -878,6 +886,7 @@ bool CommunicationChannel::registerServices() const
 
 	if (!status.IsOk())
 	{
+		printLog("Error registering service ", InputLocation.string());
 		return false;
 	}
 
@@ -888,6 +897,7 @@ bool CommunicationChannel::registerServices() const
 
 	if (!status.IsOk())
 	{
+		printLog("Error registering service ", SessionStatusLocation.string());
 		return false;
 	}
 
