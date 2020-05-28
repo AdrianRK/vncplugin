@@ -42,6 +42,9 @@ size_t height = 0;
 size_t depth  = 0;
 rfbClient *cl = NULL;
 
+std::atomic <bool> sendFullBuffer {false};
+std::atomic <bool> sendBuffer {false};
+
 static void cleanup(rfbClient* cl);
 
 void log_info(const char *format, ...)
@@ -59,7 +62,9 @@ void log_info(const char *format, ...)
 
 	strftime(tmbuff, 255, "%d/%m/%Y %x", localtime(&clk));
 	snprintf(buff, 512, format, args);
+#ifndef DISABLE_LOG
 	log(logger, tmbuff, " ", buff);
+#endif
 
 	va_start(args, format);
 
@@ -117,24 +122,42 @@ static rfbBool resize (rfbClient *client)
 
 static void update (rfbClient *cl, int x, int y, int w, int h) 
 {
-	//printLog("Received update message of size x=", x, " y=",  y, " w=", w, " h=", h);
+	printLog("Received update message of size x=", x, " y=",  y, " w=", w, " h=", h);
 
-	/*unsigned char * buffer = new  unsigned char[w * h * bytesperpixel];
-	size_t offset = 0;
-
-	for (int j = y; j < y + h; j++)
+	if (!sendBuffer)
 	{
-		memcpy(buffer + offset, surface + (x + y * width) * bytesperpixel, w * bytesperpixel);
-		offset += w * bytesperpixel;
+		return;
 	}
 
-	std::string str (reinterpret_cast<char*>(buffer), offset);
+	/*if (!sendFullBuffer)
+	{
+		unsigned char * buffer = new  unsigned char[w * h * bytesperpixel];
+		memset(buffer, 0, w * h * bytesperpixel);
+		size_t offset = 0;
 
-	comm->sendScreenGrabResult(x, y, w, h, str);*/
+		for (size_t j = y * (width * bytesperpixel); j < (y + h) * (width * bytesperpixel); j += (width * bytesperpixel))
+		{
+			memcpy(buffer + offset, surface + j + x * bytesperpixel, w * bytesperpixel);
+			offset += (w * bytesperpixel);
+		}
 
-	std::string str (reinterpret_cast<char*>(surface), screensize);
+		printLog ("Buffer size of ", w * h * bytesperpixel, " is written to with ", offset, " bytes");
+		std::string str (reinterpret_cast<char*>(buffer), offset);
 
-	comm->sendScreenGrabResult(0, 0, width, height, str);
+		comm->sendScreenGrabResult(x, y, w, h, str);
+	}
+	else
+	{*/
+		std::string str (reinterpret_cast<char*>(surface), screensize);
+		comm->sendScreenGrabResult(0, 0, width, height, str);
+		sendFullBuffer = false;
+	//}
+}
+
+void keyboardPress(int symbol, int unicodeCharacter, int xkbModifiers, bool state)
+{
+	printLog("Key press ", symbol, " unicodeCharacter ", unicodeCharacter, " xkbModifiers ", xkbModifiers, " state ", state);
+	SendKeyEvent(cl, symbol, state);
 }
 
 static void got_cut_text (rfbClient *cl, const char *text, int textlen)
@@ -192,6 +215,35 @@ void mouseMove(int x, int y)
 	SendPointerEvent(cl, x, y, 0);
 }
 
+void newSesstionStarted()
+{
+	sendFullBuffer = true;
+	sendBuffer = true;
+}
+
+void sesstionSopped()
+{
+	sendBuffer = false;
+}
+
+void mouseButtonClick(int x, int y, int button)
+{
+	switch (button)
+	{
+	case 1:
+		SendPointerEvent(cl, x, y, rfbButton1Mask);
+		break;
+	case 2:
+		SendPointerEvent(cl, x, y, rfbButton2Mask);
+		break;
+	case 3:
+		SendPointerEvent(cl, x, y, rfbButton3Mask);
+		break;
+	default:
+		return;
+	}
+}
+
 int main (int argc, char **argv)
 {
     if (argc < 2)
@@ -224,6 +276,12 @@ int main (int argc, char **argv)
 	};
 
 	comm->setStartServerConnection(startConnection);
+	comm->setStartRemoteConnection(newSesstionStarted);
+	comm->setMouseClickCB(mouseButtonClick);
+	comm->setMouseMovementConnection(mouseMove);
+	comm->setStopRemoteConnectionCB(sesstionSopped);
+	comm->setKeyboardKeyEventCB(keyboardPress);
+
 
 	comm->startup();
 

@@ -57,8 +57,8 @@ constexpr const char* SocketPrefix = "unix://";
 //constexpr const char* SessionStatusLocation = "/tmp/TVQtRC/sessionStatus/";
 
 const boost::filesystem::path ConnectivityLocation = "/tmp/TVQtRC/connectivity/";
-const boost::filesystem::path InputLocation = "/tmp/TVQtRC/connectivity/";
-const boost::filesystem::path SessionStatusLocation = "/tmp/TVQtRC/connectivity/";
+const boost::filesystem::path InputLocation = "/tmp/TVQtRC/input/";
+const boost::filesystem::path SessionStatusLocation = "/tmp/TVQtRC/sessionStatus/";
 
 
 TVRemoteScreenSDKCommunication::ImageService::ColorFormat getSdkCommunicationColorFormat(const ::ColorFormat colorFormat)
@@ -230,6 +230,12 @@ void CommunicationChannel::setStartServerConnection(const StartServerConnectionC
 void CommunicationChannel::setMouseMovementConnection(const MouseMovementCB& cb)
 {
 	m_mouseMoved = cb;
+}
+
+
+void CommunicationChannel::setStartRemoteConnection(const StartRemoteConnectionCB& cb)
+{
+	m_RCsessionStarted = cb;
 }
 
 CommunicationChannel::~CommunicationChannel()
@@ -636,26 +642,20 @@ bool CommunicationChannel::setupInputService()
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
-			/*std::shared_ptr<SimulateKeyCommand> command;
+			//std::shared_ptr<SimulateKeyCommand> command;
 
 			switch(keyState)
 			{
 			case TVRemoteScreenSDKCommunication::InputService::KeyState::Down:
-				command = std::make_shared<SimulateKeyCommand>(::KeyState::Pressed, xkbSymbol, unicodeCharacter, xkbModifiers);
+				communicationChannel->m_keyboardKeyEvent(xkbSymbol, unicodeCharacter, xkbModifiers, false);
 				break;
 			case TVRemoteScreenSDKCommunication::InputService::KeyState::Up:
-				command = std::make_shared<SimulateKeyCommand>(::KeyState::Released, xkbSymbol, unicodeCharacter, xkbModifiers);
+				communicationChannel->m_keyboardKeyEvent(xkbSymbol, unicodeCharacter, xkbModifiers, true);
 				break;
 			case TVRemoteScreenSDKCommunication::InputService::KeyState::Unknown:
 				break;
 			}
 
-			if (!command)
-			{
-				response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Failed));
-				return;
-			}
-*/
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
 			//communicationChannel->simulateKeyInputRequested(command);*/
 		}
@@ -698,30 +698,46 @@ bool CommunicationChannel::setupInputService()
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
-			/*std::shared_ptr<::SimulateMouseCommand> command;
+			//std::shared_ptr<::SimulateMouseCommand> command;
 
-			const MouseButton mouseButton = getQtSdkMouseButton(button);
+			//const MouseButton mouseButton = getQtSdkMouseButton(button);
 
-			if (mouseButton != MouseButton::Unknown)
+			//if (mouseButton != MouseButton::Unknown)
+			//{
+			//	switch (keyState)
+			//	{
+			//	case TVRemoteScreenSDKCommunication::InputService::KeyState::Down:
+			//		command = std::make_shared<::SimulateMouseCommand>(MouseButtonState::Pressed, MouseAction::PressOrRelease, posX, posY, mouseButton, 0);
+			//		break;
+			//	case TVRemoteScreenSDKCommunication::InputService::KeyState::Up:
+			//		command = std::make_shared<::SimulateMouseCommand>(MouseButtonState::Released, MouseAction::PressOrRelease, posX, posY, mouseButton, 0);
+			//		break;
+			//	case TVRemoteScreenSDKCommunication::InputService::KeyState::Unknown:
+			//		break;
+			//	}
+			//}
+            //
+			//if (!command)
+			//{
+			//	response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Failed));
+			//	return;
+			//}
+
+			switch(button)
 			{
-				switch (keyState)
-				{
-				case TVRemoteScreenSDKCommunication::InputService::KeyState::Down:
-					command = std::make_shared<::SimulateMouseCommand>(MouseButtonState::Pressed, MouseAction::PressOrRelease, posX, posY, mouseButton, 0);
-					break;
-				case TVRemoteScreenSDKCommunication::InputService::KeyState::Up:
-					command = std::make_shared<::SimulateMouseCommand>(MouseButtonState::Released, MouseAction::PressOrRelease, posX, posY, mouseButton, 0);
-					break;
-				case TVRemoteScreenSDKCommunication::InputService::KeyState::Unknown:
-					break;
-				}
-			}
-
-			if (!command)
-			{
+			case TVRemoteScreenSDKCommunication::InputService::MouseButton::Left:
+				communicationChannel->m_mouseClick(posX, posY, 1);
+				break;
+			case TVRemoteScreenSDKCommunication::InputService::MouseButton::Middle:
+				communicationChannel->m_mouseClick(posX, posY, 2);
+				break;
+			case TVRemoteScreenSDKCommunication::InputService::MouseButton::Right:
+				communicationChannel->m_mouseClick(posX, posY, 3);
+				break;
+			default:
 				response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Failed));
 				return;
-			}*/
+			}
 
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
 			//communicationChannel->simulateMouseInputRequested(command);
@@ -787,7 +803,7 @@ bool CommunicationChannel::setupSessionStatusService()
 
 			communicationChannel->sendImageDefinitionForGrabResult();
 
-			//communicationChannel->SessionStarted();
+			communicationChannel->m_RCsessionStarted();
 		}
 		else
 		{
@@ -805,7 +821,7 @@ bool CommunicationChannel::setupSessionStatusService()
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
-			//communicationChannel->tvSessionStopped();
+			communicationChannel->m_RCsessionStopped();
 		}
 		else
 		{

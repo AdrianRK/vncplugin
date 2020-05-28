@@ -94,7 +94,13 @@ enum class ColorFormat
 };
 
 using StartServerConnectionCB = std::function<void(void)>;
+using StartRemoteConnectionCB = std::function<void(void)>;
+using StopRemoteConnectionCB = std::function<void(void)>;
 using MouseMovementCB = std::function<void(int, int)>;
+
+using KeyboardKeyEventCB = std::function<void(int, int, int, bool)>;
+
+using MouseClickCB = std::function<void(int, int, int)>;
 
 class CommunicationChannel
 {
@@ -135,6 +141,10 @@ public:
 
 	void setStartServerConnection(const StartServerConnectionCB& cb);
 	void setMouseMovementConnection(const MouseMovementCB& cb);
+	void setStartRemoteConnection(const StartRemoteConnectionCB& cb);
+	void setMouseClickCB(const MouseClickCB& cb){m_mouseClick = cb;}
+	void setStopRemoteConnectionCB(const StopRemoteConnectionCB& cb) {m_RCsessionStopped = cb;}
+	void setKeyboardKeyEventCB(const KeyboardKeyEventCB& cb) {m_keyboardKeyEvent = cb;}
 
 private:
 	CommunicationChannel(const std::string& registrationSocket);
@@ -213,7 +223,9 @@ private:
 
 	StartServerConnectionCB m_sessionStarted;
 	MouseMovementCB m_mouseMoved;
-	//unsigned char * m_buffer = nullptr;
-	//size_t m_length = 0;
+	StartRemoteConnectionCB m_RCsessionStarted;
+	MouseClickCB m_mouseClick;
+	StopRemoteConnectionCB m_RCsessionStopped;
+	KeyboardKeyEventCB m_keyboardKeyEvent;
 };
 
