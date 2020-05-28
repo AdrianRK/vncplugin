@@ -110,6 +110,7 @@ public:
 
 public:
 	void startup();
+
 	void shutdown();
 
 	void sendStop();
@@ -130,11 +131,6 @@ public:
 			ColorFormat colorFormat);
 
 	void sendImageDefinitionForGrabResult() const;
-
-	void sendGrabRequest(int x, int y, int w, int h) const;
-	void sendImageDefinitionForGrabRequest(
-		const std::string& title,
-		size_t size) const;
 
 	//void setBufferSize(size_t length);
 	//void updateBufferSize(const unsigned char* source, size_t length, size_t offset);

@@ -112,7 +112,7 @@ static rfbBool resize (rfbClient *client)
 		client->frameBuffer = surface;
 		framebuffer_allocated = true;
 
-		comm->setImageDefinition("Title", width, height, 96, ColorFormat::RGBA32);
+		comm->setImageDefinition(cl->desktopName, width, height, 96, ColorFormat::RGBA32);
 		comm->sendImageDefinitionForGrabResult();
 		//comm->setBufferSize(width * height * bytesperpixel);
 		//comm->updateBufferSize(surface, width * height * bytesperpixel, 0);
@@ -129,29 +129,27 @@ static void update (rfbClient *cl, int x, int y, int w, int h)
 		return;
 	}
 
-	/*if (!sendFullBuffer)
+	if (!sendFullBuffer)
 	{
 		unsigned char * buffer = new  unsigned char[w * h * bytesperpixel];
 		memset(buffer, 0, w * h * bytesperpixel);
 		size_t offset = 0;
 
-		for (size_t j = y * (width * bytesperpixel); j < (y + h) * (width * bytesperpixel); j += (width * bytesperpixel))
+		for (size_t i = y * (width * bytesperpixel); i < (y + h) * (width * bytesperpixel); i += (width * bytesperpixel))
 		{
-			memcpy(buffer + offset, surface + j + x * bytesperpixel, w * bytesperpixel);
+			memcpy(buffer + offset, surface + i + x * bytesperpixel, w * bytesperpixel);
 			offset += (w * bytesperpixel);
 		}
 
-		printLog ("Buffer size of ", w * h * bytesperpixel, " is written to with ", offset, " bytes");
 		std::string str (reinterpret_cast<char*>(buffer), offset);
-
 		comm->sendScreenGrabResult(x, y, w, h, str);
 	}
 	else
-	{*/
+	{
 		std::string str (reinterpret_cast<char*>(surface), screensize);
 		comm->sendScreenGrabResult(0, 0, width, height, str);
 		sendFullBuffer = false;
-	//}
+	}
 }
 
 void keyboardPress(int symbol, int unicodeCharacter, int xkbModifiers, bool state)
@@ -273,6 +271,7 @@ int main (int argc, char **argv)
 	auto startConnection = [&]()
 	{
 		start = true;
+		comm->sendControlMode(ControlMode::FullControl);
 	};
 
 	comm->setStartServerConnection(startConnection);
@@ -285,9 +284,7 @@ int main (int argc, char **argv)
 
 	comm->startup();
 
-	while(!start) sleep(5);
-
-	comm->sendControlMode(ControlMode::FullControl);
+	while(!start) sleep(2);
 
 	if (!rfbInitClient(cl,&argc,argv))
 	{

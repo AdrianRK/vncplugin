@@ -52,9 +52,6 @@ namespace
 {
 constexpr const char* ClientVersion = "1.0";
 constexpr const char* SocketPrefix = "unix://";
-//constexpr const char* ConnectivityLocation = "/tmp/TVQtRC/connectivity/";
-//constexpr const char* InputLocation = "/tmp/TVQtRC/input/";
-//constexpr const char* SessionStatusLocation = "/tmp/TVQtRC/sessionStatus/";
 
 const boost::filesystem::path ConnectivityLocation = "/tmp/TVQtRC/connectivity/";
 const boost::filesystem::path InputLocation = "/tmp/TVQtRC/input/";
@@ -75,19 +72,6 @@ TVRemoteScreenSDKCommunication::ImageService::ColorFormat getSdkCommunicationCol
 	return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::Unknown;
 }
 
-/*ScreenGrabStrategy getQtSdkGrabbingStrategy(const TVRemoteScreenSDKCommunication::SessionStatusService::GrabStrategy strategy)
-{
-	switch (strategy)
-	{
-	case TVRemoteScreenSDKCommunication::SessionStatusService::GrabStrategy::ChangeNotificationOnly: return ::ScreenGrabStrategy::ChangeNotificationOnly;
-	case TVRemoteScreenSDKCommunication::SessionStatusService::GrabStrategy::EventDrivenByApp: return ::ScreenGrabStrategy::EventDrivenByApp;
-	case TVRemoteScreenSDKCommunication::SessionStatusService::GrabStrategy::NoGrabbing: return ::ScreenGrabStrategy::NoGrabbing;
-	case TVRemoteScreenSDKCommunication::SessionStatusService::GrabStrategy::Unknown: return ::ScreenGrabStrategy::NoGrabbing;
-	}
-
-	return ::ScreenGrabStrategy::NoGrabbing;
-}*/
-
 TVRemoteScreenSDKCommunication::SessionControlService::ControlMode getSdkCommunicationControlMode(ControlMode mode)
 {
 	printLog("Entry");
@@ -100,29 +84,6 @@ TVRemoteScreenSDKCommunication::SessionControlService::ControlMode getSdkCommuni
 
 	return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::Unknown;
 }
-
-/*MouseButton getQtSdkMouseButton(const TVRemoteScreenSDKCommunication::InputService::MouseButton button)
-{
-	MouseButton mouseButton = MouseButton::Unknown;
-
-	switch (button)
-	{
-	case TVRemoteScreenSDKCommunication::InputService::MouseButton::Left:
-		mouseButton = MouseButton::Left;
-		break;
-	case TVRemoteScreenSDKCommunication::InputService::MouseButton::Middle:
-		mouseButton = MouseButton::Middle;
-		break;
-	case TVRemoteScreenSDKCommunication::InputService::MouseButton::Right:
-		mouseButton = MouseButton::Right;
-		break;
-	case TVRemoteScreenSDKCommunication::InputService::MouseButton::Unknown:
-		mouseButton = MouseButton::Unknown;
-		break;
-	}
-
-	return mouseButton;
-}*/
 
 template<typename FactoryFuncT, class ClientT>
 bool setupClient(const std::string& serviceLocation, FactoryFuncT factory, typename std::unique_ptr<ClientT>& client, std::mutex& mutex)
@@ -451,51 +412,6 @@ void CommunicationChannel::sendImageDefinitionForGrabResult() const
 	}
 }
 
-void CommunicationChannel::sendGrabRequest(int x, int y, int w, int h) const
-{
-	printLog("Entry");
-	std::lock_guard<std::mutex> clientLock(m_imageNotificationServiceClientMutex);
-
-	if (m_imageNotificationServiceClient)
-	{
-		TVRemoteScreenSDKCommunication::CallStatus response =
-			m_imageNotificationServiceClient->NotifyImageChanged(
-				m_communicationId,
-				x,
-				y,
-				w,
-				h);
-
-		if (!response.IsOk())
-		{
-			printError("[CommunicationChannel] Sending grab request failed. Reason: ", response.errorMessage);
-		}
-	}
-}
-
-void CommunicationChannel::sendImageDefinitionForGrabRequest(const std::string& title, size_t size) const
-{
-	printLog("Entry");
-	std::lock_guard<std::mutex> clientLock(m_imageNotificationServiceClientMutex);
-
-	/*if (m_imageNotificationServiceClient)
-	{
-		TVRemoteScreenSDKCommunication::CallStatus response =
-			m_imageNotificationServiceClient->UpdateImageDefinition(
-				m_communicationId,
-				title.toStdString(),
-				size.width(),
-				size.height());
-
-		if (!response.IsOk())
-		{
-			const std::string errorMsg =
-				"[CommunicationChannel] Sending image definition failed. Reason: " + response.errorMessage;
-			printError(errorMsg.c_str());
-		}
-	}*/
-}
-
 std::string CommunicationChannel::getServerLocation(const TVRemoteScreenSDKCommunication::ServiceType serviceType) const
 {
 	printLog("Entry");
@@ -583,7 +499,6 @@ bool CommunicationChannel::setupConnectivityService()
 	auto availableCallback = [communicationId{m_communicationId}](
 		const std::string& comId, const IConnectivityServiceServer::IsAvailableResponseCallback& response)
 	{
-		//printLog("Entry");
 		if (comId == communicationId)
 		{
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
@@ -642,8 +557,6 @@ bool CommunicationChannel::setupInputService()
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
-			//std::shared_ptr<SimulateKeyCommand> command;
-
 			switch(keyState)
 			{
 			case TVRemoteScreenSDKCommunication::InputService::KeyState::Down:
@@ -657,7 +570,6 @@ bool CommunicationChannel::setupInputService()
 			}
 
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
-			//communicationChannel->simulateKeyInputRequested(command);*/
 		}
 		else
 		{
@@ -698,31 +610,6 @@ bool CommunicationChannel::setupInputService()
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
-			//std::shared_ptr<::SimulateMouseCommand> command;
-
-			//const MouseButton mouseButton = getQtSdkMouseButton(button);
-
-			//if (mouseButton != MouseButton::Unknown)
-			//{
-			//	switch (keyState)
-			//	{
-			//	case TVRemoteScreenSDKCommunication::InputService::KeyState::Down:
-			//		command = std::make_shared<::SimulateMouseCommand>(MouseButtonState::Pressed, MouseAction::PressOrRelease, posX, posY, mouseButton, 0);
-			//		break;
-			//	case TVRemoteScreenSDKCommunication::InputService::KeyState::Up:
-			//		command = std::make_shared<::SimulateMouseCommand>(MouseButtonState::Released, MouseAction::PressOrRelease, posX, posY, mouseButton, 0);
-			//		break;
-			//	case TVRemoteScreenSDKCommunication::InputService::KeyState::Unknown:
-			//		break;
-			//	}
-			//}
-            //
-			//if (!command)
-			//{
-			//	response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Failed));
-			//	return;
-			//}
-
 			switch(button)
 			{
 			case TVRemoteScreenSDKCommunication::InputService::MouseButton::Left:
@@ -740,7 +627,6 @@ bool CommunicationChannel::setupInputService()
 			}
 
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
-			//communicationChannel->simulateMouseInputRequested(command);
 		}
 		else
 		{
@@ -760,11 +646,7 @@ bool CommunicationChannel::setupInputService()
 		const std::shared_ptr<CommunicationChannel> communicationChannel = weakThis.lock();
 		if (communicationChannel && (communicationChannel->m_communicationId == comId))
 		{
-			/*const std::shared_ptr<::SimulateMouseCommand> command =
-				std::make_shared<::SimulateMouseCommand>(MouseButtonState::None, MouseAction::Wheel, posX, posY, MouseButton::Unknown, angle);*/
-
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
-			//communicationChannel->simulateMouseInputRequested(command);*/
 		}
 		else
 		{
@@ -804,6 +686,8 @@ bool CommunicationChannel::setupSessionStatusService()
 			communicationChannel->sendImageDefinitionForGrabResult();
 
 			communicationChannel->m_RCsessionStarted();
+
+			communicationChannel->sendControlMode(ControlMode::FullControl);
 		}
 		else
 		{

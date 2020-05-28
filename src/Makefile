@@ -2,7 +2,7 @@
 #                                     Make file VNC plugin 	                                   #
 ####################################################################################################
 INC:= -I../inc/ -I../CommunicationLayer/lib/include 
-INC:= $(INC) -DDISABLE_LOG
+#INC:= $(INC) -DDISABLE_LOG
 CFLAGS:= -c -Wall $(INC) --std=c++14 -lz
 SOURCES:= CommunicationChannel.cpp \
 	main.cpp
