@@ -22,6 +22,12 @@
 #include "logging.hpp"
 #include "CommunicationChannel.h"
 
+#include <unistd.h>
+#include <fcntl.h>
+#include <linux/fb.h>
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+
 constexpr const char* RegistrationServiceLocation =
 	"unix:///tmp/teamviewer-iot-agent-services/remoteScreen/registrationService";
 
@@ -29,7 +35,17 @@ const std::shared_ptr<CommunicationChannel> comm = CommunicationChannel::Create(
 
 bool framebuffer_allocated = false;
 uint8_t * surface = nullptr;
+size_t screensize = 0;
+size_t bytesperpixel = 0;
+size_t width  = 0;
+size_t height = 0;
+size_t depth  = 0;
 rfbClient *cl = NULL;
+
+std::atomic <bool> sendFullBuffer {false};
+std::atomic <bool> sendBuffer {false};
+
+static void cleanup(rfbClient* cl);
 
 void log_info(const char *format, ...)
 {
@@ -41,16 +57,36 @@ void log_info(const char *format, ...)
 	va_list args;
 	time_t clk;
 	char buff[512] = {0,};
-	char tmbuff[256] ={0,};
+	char tmbuff[256] = {0,};
 	time(&clk);
 
 	strftime(tmbuff, 255, "%d/%m/%Y %x", localtime(&clk));
 	snprintf(buff, 512, format, args);
+#ifndef DISABLE_LOG
 	log(logger, tmbuff, " ", buff);
+#endif
 
 	va_start(args, format);
 
 	va_end(args);
+}
+
+uint32_t get(rfbClient *cl, int x, int y)
+{
+	if (cl)
+	{
+        switch (cl->format.bitsPerPixel)
+        {
+        case 1: return ((uint8_t *)cl->frameBuffer)[x + y * cl->width];
+        case 2: return ((uint16_t *)cl->frameBuffer)[x + y * cl->width];
+        case 4: return ((uint32_t *)cl->frameBuffer)[x + y * cl->width];
+        default:
+                printError("Unknown bytes/pixel: %d", cl->format.bitsPerPixel);
+                cleanup(cl);
+                exit(1);
+        }
+	}
+	return 0;
 }
 
 static rfbBool resize (rfbClient *client) 
@@ -59,19 +95,27 @@ static rfbBool resize (rfbClient *client)
 	if (framebuffer_allocated == false)
 	{
 
-	int width  = client->width;
-	int height = client->height;
-	int depth  = client->format.bitsPerPixel;
+		width  = client->width;
+		height = client->height;
+		depth  = client->format.bitsPerPixel;
 
-	client->updateRect.x = client->updateRect.y = 0;
-	client->updateRect.w = width;
-	client->updateRect.h = height;
+		bytesperpixel = client->format.bitsPerPixel / 8;
 
-	surface = new uint8_t [width * height * depth];
+		client->updateRect.x = client->updateRect.y = 0;
+		client->updateRect.w = width;
+		client->updateRect.h = height;
 
-	client->frameBuffer = surface;
-	framebuffer_allocated = true;
+		screensize = width * height * (depth/8);
 
+		surface = new uint8_t [width * height * (depth/8)];
+
+		client->frameBuffer = surface;
+		framebuffer_allocated = true;
+
+		comm->setImageDefinition(cl->desktopName, width, height, 96, ColorFormat::RGBA32);
+		comm->sendImageDefinitionForGrabResult();
+		//comm->setBufferSize(width * height * bytesperpixel);
+		//comm->updateBufferSize(surface, width * height * bytesperpixel, 0);
 	}
 	return true;
 }
@@ -79,9 +123,39 @@ static rfbBool resize (rfbClient *client)
 static void update (rfbClient *cl, int x, int y, int w, int h) 
 {
 	printLog("Received update message of size x=", x, " y=",  y, " w=", w, " h=", h);
-	std::string str;
-	comm->sendScreenGrabResult(x, y, w, h, str);
-	comm->sendGrabRequest(x, y, w, h);
+
+	if (!sendBuffer)
+	{
+		return;
+	}
+
+	if (!sendFullBuffer)
+	{
+		unsigned char * buffer = new  unsigned char[w * h * bytesperpixel];
+		memset(buffer, 0, w * h * bytesperpixel);
+		size_t offset = 0;
+
+		for (size_t i = y * (width * bytesperpixel); i < (y + h) * (width * bytesperpixel); i += (width * bytesperpixel))
+		{
+			memcpy(buffer + offset, surface + i + x * bytesperpixel, w * bytesperpixel);
+			offset += (w * bytesperpixel);
+		}
+
+		std::string str (reinterpret_cast<char*>(buffer), offset);
+		comm->sendScreenGrabResult(x, y, w, h, str);
+	}
+	else
+	{
+		std::string str (reinterpret_cast<char*>(surface), screensize);
+		comm->sendScreenGrabResult(0, 0, width, height, str);
+		sendFullBuffer = false;
+	}
+}
+
+void keyboardPress(int symbol, int unicodeCharacter, int xkbModifiers, bool state)
+{
+	printLog("Key press ", symbol, " unicodeCharacter ", unicodeCharacter, " xkbModifiers ", xkbModifiers, " state ", state);
+	SendKeyEvent(cl, symbol, state);
 }
 
 static void got_cut_text (rfbClient *cl, const char *text, int textlen)
@@ -133,6 +207,41 @@ void handleSig(int sig)
 	exit(1);
 }
 
+void mouseMove(int x, int y)
+{
+	printLog("mouseMove X = ", x, " Y = ", y);
+	SendPointerEvent(cl, x, y, 0);
+}
+
+void newSesstionStarted()
+{
+	sendFullBuffer = true;
+	sendBuffer = true;
+}
+
+void sesstionSopped()
+{
+	sendBuffer = false;
+}
+
+void mouseButtonClick(int x, int y, int button)
+{
+	switch (button)
+	{
+	case 1:
+		SendPointerEvent(cl, x, y, rfbButton1Mask);
+		break;
+	case 2:
+		SendPointerEvent(cl, x, y, rfbButton2Mask);
+		break;
+	case 3:
+		SendPointerEvent(cl, x, y, rfbButton3Mask);
+		break;
+	default:
+		return;
+	}
+}
+
 int main (int argc, char **argv)
 {
     if (argc < 2)
@@ -144,8 +253,6 @@ int main (int argc, char **argv)
 
 	signal(SIGTERM, handleSig);
 	signal(SIGINT, handleSig);
-
-	comm->startup();
 
 	rfbClientLog=rfbClientErr=log_info;
 
@@ -159,7 +266,27 @@ int main (int argc, char **argv)
 	cl->HandleTextChat = text_chat;
 	cl->GetPassword = get_password;
 
-	if(!rfbInitClient(cl,&argc,argv))
+	std::atomic<bool> start {false};
+
+	auto startConnection = [&]()
+	{
+		start = true;
+		comm->sendControlMode(ControlMode::FullControl);
+	};
+
+	comm->setStartServerConnection(startConnection);
+	comm->setStartRemoteConnection(newSesstionStarted);
+	comm->setMouseClickCB(mouseButtonClick);
+	comm->setMouseMovementConnection(mouseMove);
+	comm->setStopRemoteConnectionCB(sesstionSopped);
+	comm->setKeyboardKeyEventCB(keyboardPress);
+
+
+	comm->startup();
+
+	while(!start) sleep(2);
+
+	if (!rfbInitClient(cl,&argc,argv))
 	{
 		printError("Failed to connect");
 		cleanup(cl);
@@ -169,7 +296,7 @@ int main (int argc, char **argv)
 	int i = 0;
 	while (1)
 	{
-		i=WaitForMessage(cl,500);
+		i = WaitForMessage(cl,500);
 		if(i<0)
 		{
 			cleanup(cl);
@@ -177,12 +304,14 @@ int main (int argc, char **argv)
 			break;
 		}
 		if(i)
+		{
 			if(!HandleRFBServerMessage(cl))
 			{
 				cleanup(cl);
 				cl = NULL; /* rfbInitClient has already freed the client struct */
 				break;
 			}
+		}
 	}
 
 	return 0;
