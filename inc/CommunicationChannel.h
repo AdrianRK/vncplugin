@@ -29,13 +29,14 @@
 
 #include <TVRemoteScreenSDKCommunication/SessionStatusService/GrabStrategy.h>
 
+#include "ICommunicationChannel.h"
+
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <atomic>
 #include <vector>
 #include <string>
-#include <functional>
 
 namespace TVRemoteScreenSDKCommunication
 {
@@ -78,69 +79,43 @@ class ISessionStatusServiceServer;
 
 } // namespace TVRemoteScreenSDKCommunication
 
-enum class ControlMode
+
+namespace vncplugin
 {
-	Disabled,
-	ViewOnly,
-	FullControl,
-};
 
-enum class ColorFormat
-{
-	Unsupported,
-	BGRA32,
-	RGBA32,
-	R5G6B5,
-};
-
-using StartServerConnectionCB = std::function<void(void)>;
-using StartRemoteConnectionCB = std::function<void(void)>;
-using StopRemoteConnectionCB = std::function<void(void)>;
-using MouseMovementCB = std::function<void(int, int)>;
-
-using KeyboardKeyEventCB = std::function<void(int, int, int, bool)>;
-
-using MouseClickCB = std::function<void(int, int, int)>;
-
-class CommunicationChannel
+class CommunicationChannel: public ICommunicationChannel
 {
 public:
 	static std::shared_ptr<CommunicationChannel> Create(const std::string& registrationSocket);
-	~CommunicationChannel();
+	virtual ~CommunicationChannel();
 
-public:
-	void startup();
+	void startup() override;
 
-	void shutdown();
+	void shutdown() override;
 
-	void sendStop();
+	void sendStop() override;
 
-	void sendControlMode(ControlMode mode);
+	void sendControlMode(ControlMode mode) override;
 
 	void sendScreenGrabResult(
 			int x,
 			int y,
 			int w,
 			int h,
-			const std::string &pictureData) const;
+			const std::string &pictureData) const override;
 
-	void setImageDefinition(const std::string& title,
-			size_t width,
-			size_t height,
-			double dpi,
-			ColorFormat colorFormat);
+	void sendImageDefinitionForGrabResult(const std::string&,
+			size_t,
+			size_t,
+			double,
+			ColorFormat) const override;
 
-	void sendImageDefinitionForGrabResult() const;
-
-	//void setBufferSize(size_t length);
-	//void updateBufferSize(const unsigned char* source, size_t length, size_t offset);
-
-	void setStartServerConnection(const StartServerConnectionCB& cb);
-	void setMouseMovementConnection(const MouseMovementCB& cb);
-	void setStartRemoteConnection(const StartRemoteConnectionCB& cb);
-	void setMouseClickCB(const MouseClickCB& cb){m_mouseClick = cb;}
-	void setStopRemoteConnectionCB(const StopRemoteConnectionCB& cb) {m_RCsessionStopped = cb;}
-	void setKeyboardKeyEventCB(const KeyboardKeyEventCB& cb) {m_keyboardKeyEvent = cb;}
+	void setStartServerConnection(const StartServerConnectionCB& cb) override;
+	void setMouseMovementConnection(const MouseMovementCB& cb) override;
+	void setStartRemoteConnection(const StartRemoteConnectionCB& cb) override;
+	void setMouseClickCB(const MouseClickCB& cb) override {m_mouseClick = cb;}
+	void setStopRemoteConnectionCB(const StopRemoteConnectionCB& cb) override {m_RCsessionStopped = cb;}
+	void setKeyboardKeyEventCB(const KeyboardKeyEventCB& cb) override {m_keyboardKeyEvent = cb;}
 
 private:
 	CommunicationChannel(const std::string& registrationSocket);
@@ -224,4 +199,4 @@ private:
 	StopRemoteConnectionCB m_RCsessionStopped;
 	KeyboardKeyEventCB m_keyboardKeyEvent;
 };
-
+} // namespace vncplugin

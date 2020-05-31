@@ -58,28 +58,28 @@ const boost::filesystem::path InputLocation = "/tmp/TVQtRC/input/";
 const boost::filesystem::path SessionStatusLocation = "/tmp/TVQtRC/sessionStatus/";
 
 
-TVRemoteScreenSDKCommunication::ImageService::ColorFormat getSdkCommunicationColorFormat(const ::ColorFormat colorFormat)
+TVRemoteScreenSDKCommunication::ImageService::ColorFormat getSdkCommunicationColorFormat(const vncplugin::ColorFormat colorFormat)
 {
 	printLog("Entry");
 	switch (colorFormat)
 	{
-	case ::ColorFormat::BGRA32: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::BGRA32;
-	case ::ColorFormat::R5G6B5: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::R5G6B5;
-	case ::ColorFormat::RGBA32: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::RGBA32;
-	case ::ColorFormat::Unsupported: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::Unknown;
+	case vncplugin::ColorFormat::BGRA32: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::BGRA32;
+	case vncplugin::ColorFormat::R5G6B5: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::R5G6B5;
+	case vncplugin::ColorFormat::RGBA32: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::RGBA32;
+	case vncplugin::ColorFormat::Unsupported: return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::Unknown;
 	}
 
 	return TVRemoteScreenSDKCommunication::ImageService::ColorFormat::Unknown;
 }
 
-TVRemoteScreenSDKCommunication::SessionControlService::ControlMode getSdkCommunicationControlMode(ControlMode mode)
+TVRemoteScreenSDKCommunication::SessionControlService::ControlMode getSdkCommunicationControlMode(vncplugin::ControlMode mode)
 {
 	printLog("Entry");
 	switch (mode)
 	{
-		case ControlMode::Disabled:    return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::Disable;
-		case ControlMode::ViewOnly:    return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::ScreenSharing;
-		case ControlMode::FullControl: return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::FullControl;
+		case vncplugin::ControlMode::Disabled:    return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::Disable;
+		case vncplugin::ControlMode::ViewOnly:    return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::ScreenSharing;
+		case vncplugin::ControlMode::FullControl: return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::FullControl;
 	}
 
 	return TVRemoteScreenSDKCommunication::SessionControlService::ControlMode::Unknown;
@@ -164,6 +164,9 @@ bool setupDir()
 
 } // namespace
 
+namespace vncplugin
+{
+
 std::shared_ptr<CommunicationChannel> CommunicationChannel::Create(
 	const std::string& registrationSocket)
 {
@@ -203,29 +206,7 @@ CommunicationChannel::~CommunicationChannel()
 {
 	printLog("Entry");
 	shutdownInternal();
-	//if (m_buffer)
-	//{
-	//	delete [] m_buffer;
-	//}
 }
-
-//void CommunicationChannel::setBufferSize(size_t length)
-//{
-//	if (m_buffer)
-//	{
-//		delete [] m_buffer;
-//	}
-//	m_length = length;
-//	m_buffer = new unsigned char [m_length];
-//}
-
-//void CommunicationChannel::updateBufferSize(const unsigned char* source, size_t length, size_t offset)
-//{
-//	if (source && m_buffer && (offset + length <= m_length))
-//	{
-//		memcpy(m_buffer + offset, source, length * sizeof(unsigned char));
-//	}
-//}
 
 void CommunicationChannel::startup()
 {
@@ -255,10 +236,8 @@ void CommunicationChannel::startup()
 				if (setupClientAndServer())
 				{
 					printLog("[Communication Channel] Setup successful.");
-					//agentCommunicationEstablished();
 					m_sessionStarted();
 					startPing();
-					//agentCommunicationLost();
 				}
 			}
 
@@ -372,21 +351,11 @@ void CommunicationChannel::sendScreenGrabResult(int x, int y, int w, int h, cons
 	}
 }
 
-
-void CommunicationChannel::setImageDefinition(const std::string& title,
+void CommunicationChannel::sendImageDefinitionForGrabResult(const std::string& title,
 		size_t width,
 		size_t height,
 		double dpi,
-		ColorFormat colorFormat)
-{
-	m_title 	= title;
-	m_width 	= width;
-	m_height 	= height;
-	m_dpi 		= dpi;
-	m_color 	= colorFormat;
-}
-
-void CommunicationChannel::sendImageDefinitionForGrabResult() const
+		ColorFormat colorFormat) const
 {
 	printLog("Entry");
 	std::lock_guard<std::mutex> lock(m_imageServiceClientMutex);
@@ -395,11 +364,11 @@ void CommunicationChannel::sendImageDefinitionForGrabResult() const
 		const TVRemoteScreenSDKCommunication::CallStatus response =
 			m_imageServiceClient->UpdateImageDefinition(
 				m_communicationId,
-				m_title,
-				m_width,
-				m_height,
-				getSdkCommunicationColorFormat(m_color),
-				m_dpi);
+				title,
+				width,
+				height,
+				getSdkCommunicationColorFormat(colorFormat),
+				dpi);
 
 		if (response.IsOk() == false)
 		{
@@ -683,11 +652,7 @@ bool CommunicationChannel::setupSessionStatusService()
 		{
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
 
-			communicationChannel->sendImageDefinitionForGrabResult();
-
 			communicationChannel->m_RCsessionStarted();
-
-			communicationChannel->sendControlMode(ControlMode::FullControl);
 		}
 		else
 		{
@@ -852,3 +817,5 @@ void CommunicationChannel::tearDown()
 	teardownClient(m_registrationServiceClient,      m_registrationServiceClientMutex);
 	teardownClient(m_sessionControlServiceClient,    m_sessionControlServiceClientMutex);
 }
+
+} // namespace vncplugin
