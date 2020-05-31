@@ -34,6 +34,7 @@ enum class UpdateType
 using SetImageDefinitionCB = std::function<void(const std::string&, int, int, double, int)>;
 using UpdateBufferCB = std::function<void(const unsigned char*, int, int, int, int, int)>;
 using GetUpdateTypeCB = std::function <UpdateType(void)>;
+using VNCServerDisconnectCB = std::function <void(bool)>;
 
 class IVNCServerWrapper
 {
@@ -48,6 +49,7 @@ public:
 	virtual void setSetImageDefinition(const SetImageDefinitionCB&) = 0;
 	virtual void setUpdateBuffer(const UpdateBufferCB&) = 0;
 	virtual void setGetUpdateType(const GetUpdateTypeCB&) = 0;
+	virtual void setVNCServerDisconnect(const VNCServerDisconnectCB&) = 0;
 
 	virtual bool isRunning() const  = 0;
 	virtual void sendKeyEvent(int, bool) = 0;

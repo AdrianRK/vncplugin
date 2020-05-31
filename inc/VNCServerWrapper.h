@@ -61,12 +61,17 @@ public:
 		return m_isRunning;
 	}
 
+	void setVNCServerDisconnect(const VNCServerDisconnectCB& cb) override
+	{
+		m_VNCServerDisconnect = cb;
+	}
+
 	void sendKeyEvent(int, bool) override;
 	void sendMouseEvent(int, int, int) override;
 
 private:
 
-	VNCServerWrapper();
+	VNCServerWrapper() = default;
 	VNCServerWrapper(const VNCServerWrapper&) = delete;
 	VNCServerWrapper(VNCServerWrapper&&) = delete;
 
@@ -77,16 +82,18 @@ private:
 	char** m_arguments = nullptr;
 	int m_count = 0;
 	rfbClient* m_cl = nullptr;
-	std::thread m_thread;
+	std::thread m_thread {};
 	std::string m_password {};
 	std::string m_user {};
 	std::atomic<bool> m_isRunning {false};
+	std::atomic<bool> m_sendFullBuffer {true};
 
 	std::weak_ptr<VNCServerWrapper> m_weakThis;
 
 	SetImageDefinitionCB m_setImageDefinition;
 	UpdateBufferCB m_updateBuffer;
 	GetUpdateTypeCB m_getUpdateType;
+	VNCServerDisconnectCB m_VNCServerDisconnect;
 };
 
 } // namespace vncplugin

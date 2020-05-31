@@ -104,13 +104,11 @@ public:
 			int h,
 			const std::string &pictureData) const override;
 
-	void setImageDefinition(const std::string& title,
-			size_t width,
-			size_t height,
-			double dpi,
-			ColorFormat colorFormat) override;
-
-	void sendImageDefinitionForGrabResult() const override;
+	void sendImageDefinitionForGrabResult(const std::string&,
+			size_t,
+			size_t,
+			double,
+			ColorFormat) const override;
 
 	void setStartServerConnection(const StartServerConnectionCB& cb) override;
 	void setMouseMovementConnection(const MouseMovementCB& cb) override;

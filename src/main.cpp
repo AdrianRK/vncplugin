@@ -50,10 +50,35 @@ int main (int argc, char **argv)
 	signal(SIGTERM, handleSig);
 	signal(SIGINT, handleSig);
 
+	std::string user {};
+	std::string password {};
+
+	if (argc >= 3)
+	{
+		if (argc > 3)
+		{
+			user = std::string(argv[2]);
+			password = std::string(argv[3]);
+		}
+		else
+		{
+			password = std::string(argv[2]);
+		}
+	}
 
 	std::shared_ptr<vncplugin::CommunicationChannel> comm = vncplugin::CommunicationChannel::Create(RegistrationServiceLocation);
 
-	std::shared_ptr<vncplugin::VNCServerWrapper> wncserver = vncplugin::VNCServerWrapper::create(argv,argc);
+	std::shared_ptr<vncplugin::VNCServerWrapper> wncserver = vncplugin::VNCServerWrapper::create(argv, 2);
+
+	if (user.size())
+	{
+		wncserver->setUser(user);
+	}
+
+	if (password.size())
+	{
+		wncserver->setPassword(password);
+	}
 
 	vncmediator = vncplugin::VNCMediator::create(comm, wncserver);
 

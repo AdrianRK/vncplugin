@@ -29,8 +29,8 @@ std::shared_ptr<VNCMediator> VNCMediator::create(
 	const std::shared_ptr<IVNCServerWrapper>& vncserver)
 {
 	std::shared_ptr<VNCMediator> instance {new VNCMediator(comm, vncserver)};
-	instance->init();
 	instance->m_weakThis = instance;
+	instance->init();
 	return instance;
 }
 
@@ -42,6 +42,11 @@ VNCMediator::VNCMediator(
 {
 }
 
+VNCMediator::~VNCMediator()
+{
+	stop();
+}
+
 void VNCMediator::init()
 {
 	auto mouseButtonClick = [weakThis = m_weakThis] (int x, int y, int button)
@@ -49,6 +54,7 @@ void VNCMediator::init()
 		std::shared_ptr<VNCMediator> vncmediator = weakThis.lock();
 		if (vncmediator)
 		{
+			printLog("Entry");
 			switch (button)
 			{
 			case 1:
@@ -66,17 +72,40 @@ void VNCMediator::init()
 		}
 	};
 
-	auto startConnection = []()
-	{};
+	auto startConnection = [weakThis = m_weakThis]()
+	{
+		printLog("Entry");
+		std::shared_ptr<VNCMediator> vncmediator = weakThis.lock();
+		if (vncmediator)
+		{
+			vncmediator->m_comm->sendControlMode(ControlMode::FullControl);
+		}
+	};
 
-	auto newSesstionStarted = []()
-	{};
+	auto newSesstionStarted = [weakThis = m_weakThis]()
+	{
+		printLog("Entry");
+		std::shared_ptr<VNCMediator> vncmediator = weakThis.lock();
+		if (vncmediator)
+		{
+			vncmediator->m_comm->sendControlMode(ControlMode::FullControl);
+			vncmediator->m_vncserver->start();
+		}
+	};
 
-	auto sesstionSopped = []()
-	{};
+	auto sesstionSopped = [weakThis = m_weakThis]()
+	{
+		printLog("Entry");
+		std::shared_ptr<VNCMediator> vncmediator = weakThis.lock();
+		if (vncmediator)
+		{
+			vncmediator->m_vncserver->stop();
+		}
+	};
 
 	auto mouseMove = [weakThis = m_weakThis](int x, int y)
 	{
+		printLog("Entry");
 		std::shared_ptr<VNCMediator> vncmediator = weakThis.lock();
 		if (vncmediator)
 		{
@@ -87,18 +116,30 @@ void VNCMediator::init()
 
 	auto keyboardPress = [weakThis = m_weakThis](int symbol, int unicodeCharacter, int xkbModifiers, bool state)
 	{
+		printLog("Key press ", symbol, " unicodeCharacter ", unicodeCharacter, " xkbModifiers ", xkbModifiers, " state ", state);
 		std::shared_ptr<VNCMediator> vncmediator = weakThis.lock();
-		if (vncmediator)
+		if (vncmediator && vncmediator->m_vncserver && vncmediator->m_vncserver->isRunning())
 		{
-			printLog("Key press ", symbol, " unicodeCharacter ", unicodeCharacter, " xkbModifiers ", xkbModifiers, " state ", state);
-
 			vncmediator->m_vncserver->sendKeyEvent(symbol, state);
 		}
 	};
 
-	auto setImageDefinition = [](const std::string& title, int width, int height, double dpi, int bytesperpixel)
+	auto setImageDefinition = [weakThis = m_weakThis](const std::string& title, int width, int height, double dpi, int bytesperpixel)
 	{
 		printLog("Entry");
+		std::shared_ptr<VNCMediator> vncmediator = weakThis.lock();
+		if (vncmediator)
+		{
+			if (bytesperpixel == 4)
+			{
+				vncmediator->m_comm->sendImageDefinitionForGrabResult(title, width, height, dpi, ColorFormat::RGBA32);
+			}
+			else
+			{
+				printError("Unknown color format ", bytesperpixel);
+			}
+
+		}
 	};
 
 	auto updateBuffer = [weakThis = m_weakThis](const unsigned char* buffer, int screensize, int x, int y, int w, int h)
@@ -113,8 +154,21 @@ void VNCMediator::init()
 
 	auto GetUpdateTypeCB = []() -> UpdateType
 	{
-		return UpdateType::FullBufferUpdate;
+		return UpdateType::PartialBufferUpdate;
 	};
+
+	auto vncServerDisconnect = [weakThis = m_weakThis](bool normalTermination)
+	{
+		if (!normalTermination)
+		{
+			std::shared_ptr<VNCMediator> vncmediator = weakThis.lock();
+			if (vncmediator)
+			{
+				vncmediator->m_comm->sendStop();
+			}
+		}
+	};
+
 
 	if (m_comm)
 	{
@@ -131,24 +185,22 @@ void VNCMediator::init()
 		m_vncserver->setSetImageDefinition(setImageDefinition);
 		m_vncserver->setUpdateBuffer(updateBuffer);
 		m_vncserver->setGetUpdateType(GetUpdateTypeCB);
+		m_vncserver->setVNCServerDisconnect(vncServerDisconnect);
 	}
 }
 
 void VNCMediator::start()
 {
+	printLog("Entry");
 	if (m_comm)
 	{
 		m_comm->startup();
-	}
-
-	if (m_vncserver)
-	{
-		m_vncserver->start();
 	}
 }
 
 void VNCMediator::stop()
 {
+	printLog("Entry");
 	if (m_comm)
 	{
 		m_comm->sendStop();

@@ -206,29 +206,7 @@ CommunicationChannel::~CommunicationChannel()
 {
 	printLog("Entry");
 	shutdownInternal();
-	//if (m_buffer)
-	//{
-	//	delete [] m_buffer;
-	//}
 }
-
-//void CommunicationChannel::setBufferSize(size_t length)
-//{
-//	if (m_buffer)
-//	{
-//		delete [] m_buffer;
-//	}
-//	m_length = length;
-//	m_buffer = new unsigned char [m_length];
-//}
-
-//void CommunicationChannel::updateBufferSize(const unsigned char* source, size_t length, size_t offset)
-//{
-//	if (source && m_buffer && (offset + length <= m_length))
-//	{
-//		memcpy(m_buffer + offset, source, length * sizeof(unsigned char));
-//	}
-//}
 
 void CommunicationChannel::startup()
 {
@@ -258,10 +236,8 @@ void CommunicationChannel::startup()
 				if (setupClientAndServer())
 				{
 					printLog("[Communication Channel] Setup successful.");
-					//agentCommunicationEstablished();
 					m_sessionStarted();
 					startPing();
-					//agentCommunicationLost();
 				}
 			}
 
@@ -375,21 +351,11 @@ void CommunicationChannel::sendScreenGrabResult(int x, int y, int w, int h, cons
 	}
 }
 
-
-void CommunicationChannel::setImageDefinition(const std::string& title,
+void CommunicationChannel::sendImageDefinitionForGrabResult(const std::string& title,
 		size_t width,
 		size_t height,
 		double dpi,
-		ColorFormat colorFormat)
-{
-	m_title 	= title;
-	m_width 	= width;
-	m_height 	= height;
-	m_dpi 		= dpi;
-	m_color 	= colorFormat;
-}
-
-void CommunicationChannel::sendImageDefinitionForGrabResult() const
+		ColorFormat colorFormat) const
 {
 	printLog("Entry");
 	std::lock_guard<std::mutex> lock(m_imageServiceClientMutex);
@@ -398,11 +364,11 @@ void CommunicationChannel::sendImageDefinitionForGrabResult() const
 		const TVRemoteScreenSDKCommunication::CallStatus response =
 			m_imageServiceClient->UpdateImageDefinition(
 				m_communicationId,
-				m_title,
-				m_width,
-				m_height,
-				getSdkCommunicationColorFormat(m_color),
-				m_dpi);
+				title,
+				width,
+				height,
+				getSdkCommunicationColorFormat(colorFormat),
+				dpi);
 
 		if (response.IsOk() == false)
 		{
@@ -686,11 +652,7 @@ bool CommunicationChannel::setupSessionStatusService()
 		{
 			response(TVRemoteScreenSDKCommunication::CallStatus(TVRemoteScreenSDKCommunication::CallState::Ok));
 
-			communicationChannel->sendImageDefinitionForGrabResult();
-
 			communicationChannel->m_RCsessionStarted();
-
-			communicationChannel->sendControlMode(ControlMode::FullControl);
 		}
 		else
 		{

@@ -30,7 +30,7 @@ class VNCMediator
 {
 public:
 	static std::shared_ptr<VNCMediator> create(const std::shared_ptr<ICommunicationChannel>&, const std::shared_ptr<IVNCServerWrapper>&);
-	~VNCMediator() = default;
+	~VNCMediator();
 
 	void start();
 	void stop();
@@ -44,6 +44,7 @@ private:
 
 	const std::shared_ptr<ICommunicationChannel> m_comm;
 	const std::shared_ptr<IVNCServerWrapper> m_vncserver;
+
 	std::weak_ptr<VNCMediator> m_weakThis;
 };
 

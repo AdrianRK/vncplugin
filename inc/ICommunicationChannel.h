@@ -63,13 +63,11 @@ public:
 			int,
 			const std::string &) const = 0;
 
-	virtual void setImageDefinition(const std::string&,
+	virtual void sendImageDefinitionForGrabResult(const std::string&,
 			size_t,
 			size_t,
 			double,
-			ColorFormat) = 0;
-
-	virtual void sendImageDefinitionForGrabResult() const  = 0;
+			ColorFormat) const  = 0;
 
 	virtual void setStartServerConnection(const StartServerConnectionCB&) = 0;
 	virtual void setMouseMovementConnection(const MouseMovementCB&) = 0;

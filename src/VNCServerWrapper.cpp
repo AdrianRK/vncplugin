@@ -54,12 +54,7 @@ void log_info(const char *format, ...)
 	va_end(args);
 }
 
-//const ClientData g_vnclugin = ClientData::WrapperPointer;
 void vncGetWrapperPointer(){}
-
-std::atomic <bool> sendFullBuffer {false};
-std::atomic <bool> sendBuffer {false};
-
 }
 
 
@@ -69,8 +64,8 @@ namespace vncplugin
 std::shared_ptr<VNCServerWrapper> VNCServerWrapper::create(char** arguments, int count)
 {
 	std::shared_ptr<VNCServerWrapper> instance (new VNCServerWrapper);
-	instance->init(arguments, count);
 	instance->m_weakThis = instance;
+	instance->init(arguments, count);
 	return instance;
 }
 
@@ -88,6 +83,9 @@ void VNCServerWrapper::sendMouseEvent(int x, int y, int state)
 	{
 		switch (state)
 		{
+		case 0:
+			SendPointerEvent(m_cl, x, y, 0);
+			break;
 		case 1:
 			SendPointerEvent(m_cl, x, y, rfbButton1Mask);
 			break;
@@ -102,9 +100,6 @@ void VNCServerWrapper::sendMouseEvent(int x, int y, int state)
 		}
 	}
 }
-
-VNCServerWrapper::VNCServerWrapper()
-{}
 
 void VNCServerWrapper::init(char** arguments, int count)
 {
@@ -137,12 +132,25 @@ void VNCServerWrapper::init(char** arguments, int count)
 		auto forwardBuffer = [](rfbClient *cl, int x, int y, int w, int h)
 		{
 
-			if (!sendBuffer)
+			VNCServerWrapper * ptr = reinterpret_cast<VNCServerWrapper*>(rfbClientGetClientData(cl, reinterpret_cast<void*>(vncGetWrapperPointer)));
+
+			if (!ptr)
 			{
 				return;
 			}
 
-			if (!sendFullBuffer)
+			if (ptr->m_sendFullBuffer || ptr->m_getUpdateType() == UpdateType::FullBufferUpdate)
+
+			{
+				VNCServerWrapper * ptr = reinterpret_cast<VNCServerWrapper*>(rfbClientGetClientData(cl, reinterpret_cast<void*>(vncGetWrapperPointer)));
+
+				if (ptr && ptr->m_updateBuffer)
+				{
+					ptr->m_updateBuffer(cl->frameBuffer, cl->width * cl->height * (cl->format.bitsPerPixel/8), 0, 0, cl->width, cl->height);
+					ptr->m_sendFullBuffer = false;
+				}
+			}
+			else if (ptr->m_getUpdateType() == UpdateType::PartialBufferUpdate)
 			{
 				unsigned char * buffer = new  unsigned char[w * h * (cl->format.bitsPerPixel/8)];
 				memset(buffer, 0, w * h * (cl->format.bitsPerPixel/8));
@@ -160,17 +168,6 @@ void VNCServerWrapper::init(char** arguments, int count)
 				{
 					ptr->m_updateBuffer(buffer, offset, x, y, w, h);
 				}
-			}
-			else
-			{
-				VNCServerWrapper * ptr = reinterpret_cast<VNCServerWrapper*>(rfbClientGetClientData(cl, reinterpret_cast<void*>(vncGetWrapperPointer)));
-
-				if (ptr && ptr->m_updateBuffer)
-				{
-					ptr->m_updateBuffer(cl->frameBuffer, cl->width * cl->height * (cl->format.bitsPerPixel/8), 0, 0, cl->width, cl->height);
-				}
-
-				sendFullBuffer = false;
 			}
 		};
 
@@ -266,6 +263,7 @@ void VNCServerWrapper::init(char** arguments, int count)
 		m_cl->GetCredential = getUserAndPassword;
 		m_cl->GetPassword = getPassword;
 		m_cl->frameBuffer = nullptr;
+		m_sendFullBuffer = true;
 
 		rfbClientSetClientData(m_cl, reinterpret_cast<void*>(vncGetWrapperPointer), this);
 	}
@@ -280,7 +278,6 @@ void VNCServerWrapper::cleanup()
 {
 	if (m_cl != nullptr)
 	{
-
 		if (m_cl->frameBuffer != nullptr)
 		{
 			delete[] m_cl->frameBuffer;
@@ -295,48 +292,67 @@ void VNCServerWrapper::start()
 {
 	if (!m_isRunning)
 	{
+		m_isRunning = true;
 		if (m_cl == nullptr)
 		{
 			init(m_arguments, m_count);
 		}
 		std::weak_ptr<VNCServerWrapper> weakThis = m_weakThis;
 
+		if (m_thread.joinable())
+		{
+			m_thread.join();
+		}
+
 		m_thread = std::thread([weakThis]()
-				{
-			sleep(1);
+		{
 			if (std::shared_ptr<VNCServerWrapper> instance = weakThis.lock())
 			{
-
-				while (instance->m_isRunning)
+				int retry = 3;
+				while (instance->m_isRunning && retry)
 				{
-					sleep(1);
 					if (!rfbInitClient(instance->m_cl, &instance->m_count, instance->m_arguments))
 					{
 						printError("Failed to connect");
-						break;
+						retry--;
+						sleep(1);
+						continue;
 					}
+					retry = 3;
 					int i = 0;
-					while (instance->m_isRunning)
+					while (instance->m_isRunning && retry)
 					{
 						i = WaitForMessage(instance->m_cl,500);
 						if(i<0)
 						{
-							break;
+							printError("Error received while waiting for message");
+							retry--;
+							sleep(1);
+							continue;
 						}
+						retry = 3;
 						if(i)
 						{
 							if(!HandleRFBServerMessage(instance->m_cl))
 							{
-								break;
+								printError("Error received while handling remote framebuffer message");
+								retry--;
+								sleep(1);
+								continue;
 							}
+							retry = 3;
 						}
 					}
 				}
+				instance->m_isRunning = false;
 				instance->cleanup();
-			}
-				});
 
-		m_isRunning = true;
+				if (instance->m_VNCServerDisconnect)
+				{
+					instance->m_VNCServerDisconnect( retry != 0);
+				}
+			}
+		});
 	}
 }
 
